@@ -1,0 +1,266 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Teacher Dashboard{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>👨‍🏫 Teacher Dashboard</h2>
+        <div>
+            <a href="{% url 'core:create_exam' %}" class="btn btn-primary">➕ Create New Exam</a>
+            <a href="{% url 'core:create_subject' %}" class="btn btn-outline-secondary">📚 Add Subject</a>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="stat-card">
+                <div class="number">{{ my_exams_count }}</div>
+                <div class="text-muted">Total Exams</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card">
+                <div class="number">{{ published_exams }}</div>
+                <div class="text-muted">Published</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card">
+                <div class="number">{{ total_attempts }}</div>
+                <div class="text-muted">Total Attempts</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card">
+                <div class="number">👋</div>
+                <div class="text-muted">Welcome, {{ user.username }}</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- My Exams List -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">📚 My Exams ({{ my_exams|length }})</h5>
+        </div>
+        <div class="card-body">
+            {% if my_exams %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Title</th>
+                                <th>Subject</th>
+                                <th>Questions</th>
+                                <th>Status</th>
+                                <th>Attempts</th>
+                                <th>Created</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for exam in my_exams %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ exam.title }}</strong><br>
+                                        <small class="text-muted">{{ exam.duration }} min | {{ exam.total_marks }} marks</small>
+                                    </td>
+                                    <td>{{ exam.subject.code }}</td>
+                                    <td>
+                                        <span class="badge {% if exam.pending_questions > 0 %}bg-info{% else %}bg-success{% endif %}">
+                                            {{ exam.pending_questions }} questions
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="badge badge-{{ exam.status }}">
+                                            {{ exam.status|title }}
+                                        </span>
+                                        {% if exam.is_practice_mode %}
+                                            <span class="badge bg-info">Practice</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-secondary">{{ exam.attempt_count }}</span>
+                                    </td>
+                                    <td>{{ exam.created_at|date:"M d, Y" }}</td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm">
+                                            <a href="{% url 'core:exam_detail_teacher' exam.id %}"
+                                               class="btn btn-outline-primary" title="View">👁️</a>
+                                            <a href="{% url 'core:edit_exam' exam.id %}"
+                                               class="btn btn-outline-secondary" title="Edit">✏️</a>
+                                            <a href="{% url 'core:add_questions' exam.id %}"
+                                               class="btn btn-outline-success" title="Add Questions">➕</a>
+                                            {% if exam.status == 'draft' and exam.pending_questions > 0 %}
+                                                <button type="button" class="btn btn-outline-success"
+                                                        onclick="publishExam({{ exam.id }})" title="Publish">📢</button>
+                                            {% endif %}
+                                            <button type="button" class="btn btn-outline-danger"
+                                                    onclick="deleteExam({{ exam.id }}, '{{ exam.title }}')"
+                                                    title="Delete">🗑️</button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="text-center text-muted py-5">
+                    <div class="display-4 mb-3">📝</div>
+                    <h5>No exams created yet</h5>
+                    <p>Create your first exam to get started!</p>
+                    <a href="{% url 'core:create_exam' %}" class="btn btn-primary">Create Exam</a>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Recent Exam Attempts -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0">📊 Recent Exam Attempts</h5>
+        </div>
+        <div class="card-body">
+            {% if recent_attempts %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Student</th>
+                                <th>Exam</th>
+                                <th>Score</th>
+                                <th>Status</th>
+                                <th>Warnings</th>
+                                <th>Date</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for attempt in recent_attempts %}
+                                <tr>
+                                    <td>{{ attempt.student.username }}</td>
+                                    <td>{{ attempt.exam.title }}</td>
+                                    <td>
+                                        {% if attempt.score %}
+                                            {{ attempt.score }}/{{ attempt.exam.total_marks }}
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="badge badge-{{ attempt.status }}">
+                                            {{ attempt.status|title }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {% if attempt.total_warnings > 0 %}
+                                            <span class="badge bg-danger">{{ attempt.total_warnings }}</span>
+                                        {% else %}
+                                            <span class="badge bg-success">0</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ attempt.start_time|date:"M d, Y H:i" }}</td>
+                                    <td>
+                                        <a href="{% url 'core:exam_result' attempt.id %}"
+                                           class="btn btn-sm btn-outline-primary">View</a>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="text-center text-muted py-4">
+                    <p>No exam attempts yet. Create and publish your first exam!</p>
+                    <a href="{% url 'core:create_exam' %}" class="btn btn-primary">Create Exam</a>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+function publishExam(examId) {
+    if (!confirm('Are you sure you want to publish this exam? Once published, students can start taking it.')) {
+        return;
+    }
+
+    const csrftoken = getCookie('csrftoken');
+    
+    fetch(`/teacher/exam/${examId}/publish/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': csrftoken,
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(res => {
+        if (!res.ok && res.status !== 400) {
+            throw new Error(`HTTP error! status: ${res.status}`);
+        }
+        return res.json();
+    })
+    .then(data => {
+        if (data.success) {
+            alert('✅ Exam published successfully!\n\nStudents can now see and take this exam.');
+            location.reload();
+        } else {
+            alert('❌ Could not publish exam:\n\n' + (data.error || 'Unknown error'));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('❌ Failed to publish exam. Please try again or check the browser console for details.');
+    });
+}
+
+function deleteExam(examId, examTitle) {
+    if (!confirm(`Are you sure you want to delete "${examTitle}"?\n\nThis will delete the exam and all associated data (questions, attempts, results). This action cannot be undone.`)) {
+        return;
+    }
+
+    const csrftoken = getCookie('csrftoken');
+
+    fetch(`/teacher/exam/${examId}/delete/`, {
+        method: 'DELETE',
+        headers: {
+            'X-CSRFToken': csrftoken,
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            alert('Exam deleted successfully!');
+            location.reload();
+        } else {
+            alert('Error: ' + (data.error || 'Could not delete exam'));
+        }
+    })
+    .catch(error => {
+        alert('Failed to delete exam. Please try again.');
+        console.error(error);
+    });
+}
+</script>
+
+<input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
+{% endblock %}

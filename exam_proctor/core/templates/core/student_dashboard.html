@@ -1,0 +1,190 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Student Dashboard{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>👨‍🎓 Student Dashboard</h2>
+        <span class="text-muted">Welcome, {{ user.username }}</span>
+    </div>
+
+    <!-- Published Exams -->
+    <div id="available-exams" class="row mb-5">
+        <div class="col-12">
+            <h3 class="mb-3">📝 Published Exams</h3>
+        </div>
+        {% if all_exams %}
+            {% for exam in all_exams %}
+                <div class="col-md-4 mb-3">
+                    <div class="card exam-card h-100 {% if exam.is_available %}border-success{% elif exam.is_attempted %}border-secondary{% elif exam.is_expired %}border-danger{% else %}border-warning{% endif %}">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">{{ exam.title }}</h5>
+                            {% if exam.is_available %}
+                                <span class="badge bg-success">Available</span>
+                            {% elif exam.is_attempted %}
+                                <span class="badge bg-secondary">Attempted</span>
+                            {% elif exam.is_not_started %}
+                                <span class="badge bg-warning">Not Started</span>
+                            {% elif exam.is_expired %}
+                                <span class="badge bg-danger">Expired</span>
+                            {% endif %}
+                        </div>
+                        <div class="card-body">
+                            <p class="text-muted small mb-2">
+                                <strong>Subject:</strong> {{ exam.subject.name }}
+                            </p>
+                            <p class="text-muted small mb-2">
+                                <strong>Duration:</strong> {{ exam.duration }} minutes
+                            </p>
+                            <p class="text-muted small mb-2">
+                                <strong>Marks:</strong> {{ exam.total_marks }} (Pass: {{ exam.passing_marks }})
+                            </p>
+                            <p class="text-muted small mb-2">
+                                <strong>Questions:</strong> {{ exam.question_count }}
+                            </p>
+                            <p class="text-muted small mb-1">
+                                <strong>Starts:</strong> {{ exam.start_time|date:"M d, Y H:i" }}
+                            </p>
+                            <p class="text-muted small mb-0">
+                                <strong>Ends:</strong> {{ exam.end_time|date:"M d, Y H:i" }}
+                            </p>
+                            {% if exam.is_practice_mode %}
+                                <p class="small mb-0 mt-2">
+                                    <span class="badge bg-info">Practice Mode</span>
+                                </p>
+                            {% endif %}
+                        </div>
+                        <div class="card-footer">
+                            {% if exam.is_available %}
+                                <div class="d-grid gap-2">
+                                    <a href="{% url 'core:exam_instructions' exam.id %}"
+                                       class="btn btn-primary">🚀 Start Exam</a>
+                                    <a href="{% url 'core:exam_detail' exam.id %}"
+                                       class="btn btn-outline-secondary btn-sm">View Details</a>
+                                </div>
+                            {% elif exam.is_attempted %}
+                                <div class="d-grid gap-2">
+                                    <span class="text-center text-muted small">✅ You have attempted this exam</span>
+                                    {% if exam.is_available or exam.is_practice_mode %}
+                                        <a href="{% url 'core:exam_instructions' exam.id %}"
+                                           class="btn btn-warning btn-sm"
+                                           onclick="return confirm('Do you want to retry this exam? Your previous results will be saved separately.');">
+                                            🔄 Retry Exam
+                                        </a>
+                                    {% endif %}
+                                    <a href="{% url 'core:exam_result' exam.attempt_id %}"
+                                       class="btn btn-outline-primary btn-sm">View Results</a>
+                                </div>
+                            {% elif exam.is_not_started %}
+                                <div class="d-grid gap-2">
+                                    <a href="{% url 'core:exam_instructions' exam.id %}"
+                                       class="btn btn-outline-info">📋 View Instructions</a>
+                                    <small class="text-center text-muted">Starts: {{ exam.start_time|date:"M d, Y H:i" }}</small>
+                                </div>
+                            {% elif exam.is_expired %}
+                                <div class="d-grid">
+                                    <span class="text-center text-danger small">⏰ Exam has ended</span>
+                                    <small class="text-center text-muted">Ended: {{ exam.end_time|date:"M d, Y H:i" }}</small>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        {% else %}
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body text-center py-5">
+                        <div class="display-4 mb-3">📭</div>
+                        <h5>No published exams</h5>
+                        <p class="text-muted">No exams have been published yet. Check back later!</p>
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- My Attempts -->
+    <div id="my-attempts" class="row">
+        <div class="col-12">
+            <h3 class="mb-3">📈 My Exam Results</h3>
+        </div>
+        {% if my_attempts %}
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Exam</th>
+                                        <th>Subject</th>
+                                        <th>Score</th>
+                                        <th>Percentage</th>
+                                        <th>Status</th>
+                                        <th>Warnings</th>
+                                        <th>Date</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for attempt in my_attempts %}
+                                        <tr>
+                                            <td>{{ attempt.exam.title }}</td>
+                                            <td>{{ attempt.exam.subject.name }}</td>
+                                            <td>
+                                                {% if attempt.score is not None %}
+                                                    {{ attempt.score }}/{{ attempt.exam.total_marks }}
+                                                {% else %}
+                                                    -
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if attempt.percentage is not None %}
+                                                    <span class="badge {% if attempt.percentage >= 40 %}bg-success{% else %}bg-danger{% endif %}">
+                                                        {{ attempt.percentage }}%
+                                                    </span>
+                                                {% else %}
+                                                    -
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <span class="badge badge-{{ attempt.status }}">
+                                                    {{ attempt.status|title }}
+                                                </span>
+                                            </td>
+                                            <td>
+                                                {% if attempt.total_warnings > 0 %}
+                                                    <span class="badge bg-danger">{{ attempt.total_warnings }}</span>
+                                                {% else %}
+                                                    <span class="badge bg-success">0</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>{{ attempt.start_time|date:"M d, Y" }}</td>
+                                            <td>
+                                                <a href="{% url 'core:exam_result' attempt.id %}"
+                                                   class="btn btn-sm btn-outline-primary">View Details</a>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% else %}
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body text-center py-5">
+                        <div class="display-4 mb-3">📝</div>
+                        <h5>No exam attempts yet</h5>
+                        <p class="text-muted">Start your first exam from the published exams above!</p>
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,98 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Home - ExamPrep Proctor{% endblock %}
+
+{% block content %}
+<section class="hero-section">
+    <div class="container">
+        <h1>📚 Welcome to ExamPrep Proctor</h1>
+        <p class="lead">AI-Powered Secure Online Examination Platform</p>
+        <p class="mt-4">
+            Take proctored exams from anywhere with our advanced AI-powered monitoring system.
+            Detect tab switching, multiple faces, and suspicious activities in real-time.
+        </p>
+        <div class="mt-4">
+            <a href="{% url 'core:register' %}" class="btn btn-light btn-lg me-2">Get Started</a>
+            <a href="{% url 'core:login' %}" class="btn btn-outline-light btn-lg">Login</a>
+        </div>
+    </div>
+</section>
+
+<div class="container mt-5">
+    <!-- Features -->
+    <div class="row">
+        <div class="col-md-4 mb-4">
+            <div class="card h-100">
+                <div class="card-body text-center">
+                    <div class="display-4 mb-3">🤖</div>
+                    <h5>AI Proctoring</h5>
+                    <p class="text-muted">Advanced face detection and monitoring using face-api.js</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-4">
+            <div class="card h-100">
+                <div class="card-body text-center">
+                    <div class="display-4 mb-3">👁️</div>
+                    <h5>Real-time Monitoring</h5>
+                    <p class="text-muted">Detect tab switches, multiple faces, and suspicious activities</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-4">
+            <div class="card h-100">
+                <div class="card-body text-center">
+                    <div class="display-4 mb-3">📊</div>
+                    <h5>Instant Results</h5>
+                    <p class="text-muted">Get immediate feedback with detailed performance analysis</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- How It Works -->
+    <div class="row mt-5">
+        <div class="col-12">
+            <h2 class="text-center mb-4">How It Works</h2>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-md-3 mb-4">
+            <div class="card text-center">
+                <div class="card-body">
+                    <div class="badge bg-primary fs-1 mb-3">1</div>
+                    <h5>Register</h5>
+                    <p class="text-muted small">Create your account as Teacher or Student</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-4">
+            <div class="card text-center">
+                <div class="card-body">
+                    <div class="badge bg-primary fs-1 mb-3">2</div>
+                    <h5>Create/Join</h5>
+                    <p class="text-muted small">Teachers create exams, Students enroll</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-4">
+            <div class="card text-center">
+                <div class="card-body">
+                    <div class="badge bg-primary fs-1 mb-3">3</div>
+                    <h5>Take Exam</h5>
+                    <p class="text-muted small">AI-monitored secure exam environment</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-4">
+            <div class="card text-center">
+                <div class="card-body">
+                    <div class="badge bg-primary fs-1 mb-3">4</div>
+                    <h5>Get Results</h5>
+                    <p class="text-muted small">Instant scoring with detailed analytics</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

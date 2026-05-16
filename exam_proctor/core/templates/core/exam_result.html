@@ -1,0 +1,167 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Exam Results{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-10">
+            <!-- Score Card -->
+            <div class="card mb-4">
+                <div class="card-header text-center">
+                    <h4 class="mb-0">📊 Exam Results</h4>
+                </div>
+                <div class="card-body text-center">
+                    <h2>{{ attempt.exam.title }}</h2>
+                    <p class="text-muted">Student: {{ attempt.student.username }}</p>
+
+                    <div class="row mt-4">
+                        <div class="col-md-3">
+                            <div class="stat-card">
+                                <div class="number {% if is_passed %}text-success{% else %}text-danger{% endif %}">
+                                    {{ attempt.score|default:0 }}/{{ attempt.exam.total_marks }}
+                                </div>
+                                <div class="text-muted">Score</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="stat-card">
+                                <div class="number {% if is_passed %}text-success{% else %}text-danger{% endif %}">
+                                    {{ attempt.percentage|default:0|floatformat:1 }}%
+                                </div>
+                                <div class="text-muted">Percentage</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="stat-card">
+                                <div class="number">
+                                    {% if attempt.time_taken %}
+                                        {% widthratio attempt.time_taken 60 1 as minutes %}{{ minutes }}m
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </div>
+                                <div class="text-muted">Time Taken</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="stat-card">
+                                <div class="number {% if attempt.total_warnings > 0 %}text-danger{% else %}text-success{% endif %}">
+                                    {{ attempt.total_warnings }}
+                                </div>
+                                <div class="text-muted">Warnings</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-4">
+                        {% if is_passed %}
+                            <h3 class="text-success">✅ PASSED</h3>
+                        {% else %}
+                            <h3 class="text-danger">❌ FAILED</h3>
+                        {% endif %}
+
+                        <p class="text-muted">
+                            Passing marks: {{ attempt.exam.passing_marks }}/{{ attempt.exam.total_marks }}
+                        </p>
+                    </div>
+
+                    <div class="mt-4">
+                        <a href="{% url 'core:student_dashboard' %}" class="btn btn-primary">
+                            ← Back to Dashboard
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Proctoring Logs -->
+            {% if proctoring_logs %}
+                <div class="card mb-4">
+                    <div class="card-header bg-warning text-dark">
+                        <h5 class="mb-0">⚠️ Proctoring Logs ({{ proctoring_logs.count }} incidents)</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Time</th>
+                                        <th>Alert Type</th>
+                                        <th>Severity</th>
+                                        <th>Description</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for log in proctoring_logs %}
+                                        <tr>
+                                            <td>{{ log.timestamp|date:"H:i:s" }}</td>
+                                            <td>
+                                                <span class="badge bg-{{ log.severity }}">
+                                                    {{ log.get_alert_type_display }}
+                                                </span>
+                                            </td>
+                                            <td>{{ log.severity|title }}</td>
+                                            <td>{{ log.description }}</td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+
+            <!-- Detailed Answers -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">📝 Detailed Answers</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Q.No</th>
+                                    <th>Question</th>
+                                    <th>Your Answer</th>
+                                    <th>Correct Answer</th>
+                                    <th>Status</th>
+                                    <th>Marks</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for answer in answers %}
+                                    <tr>
+                                        <td>{{ answer.question.order }}</td>
+                                        <td>{{ answer.question.question_text|truncatewords:10 }}</td>
+                                        <td>
+                                            {% if answer.selected_option %}
+                                                Option {{ answer.selected_option }}
+                                            {% else %}
+                                                <em class="text-muted">Not answered</em>
+                                            {% endif %}
+                                        </td>
+                                        <td>Option {{ answer.question.correct_option }}</td>
+                                        <td>
+                                            {% if answer.is_correct %}
+                                                <span class="badge bg-success">✓ Correct</span>
+                                            {% elif answer.selected_option %}
+                                                <span class="badge bg-danger">✗ Wrong</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary">-</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if answer.is_correct %}+{% else %}0{% endif %} / {{ answer.question.marks }}
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

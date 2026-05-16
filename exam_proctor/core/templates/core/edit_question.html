@@ -1,0 +1,88 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Edit Question{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="mb-0">✏️ Edit Question {{ question.order }}</h4>
+                    <small class="text-muted">Exam: {{ exam.title }}</small>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+
+                        <div class="mb-3">
+                            <label for="question_text" class="form-label">Question Text</label>
+                            <textarea class="form-control" name="question_text" id="question_text"
+                                      rows="3" required>{{ question.question_text }}</textarea>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="option_a" class="form-label">Option A</label>
+                            <input type="text" class="form-control" name="option_a" id="option_a"
+                                   value="{{ question.option_a }}" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="option_b" class="form-label">Option B</label>
+                            <input type="text" class="form-control" name="option_b" id="option_b"
+                                   value="{{ question.option_b }}" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="option_c" class="form-label">Option C</label>
+                            <input type="text" class="form-control" name="option_c" id="option_c"
+                                   value="{{ question.option_c }}" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="option_d" class="form-label">Option D</label>
+                            <input type="text" class="form-control" name="option_d" id="option_d"
+                                   value="{{ question.option_d }}" required>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="correct_option" class="form-label">Correct Option</label>
+                                <select class="form-select" name="correct_option" id="correct_option" required>
+                                    <option value="A" {% if question.correct_option == 'A' %}selected{% endif %}>A</option>
+                                    <option value="B" {% if question.correct_option == 'B' %}selected{% endif %}>B</option>
+                                    <option value="C" {% if question.correct_option == 'C' %}selected{% endif %}>C</option>
+                                    <option value="D" {% if question.correct_option == 'D' %}selected{% endif %}>D</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="marks" class="form-label">Marks</label>
+                                <input type="number" class="form-control" name="marks" id="marks"
+                                       value="{{ question.marks }}" min="1" required>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="order" class="form-label">Question Order</label>
+                            <input type="number" class="form-control" name="order" id="order"
+                                   value="{{ question.order }}" min="1" required>
+                            <small class="form-text text-muted">
+                                Questions will be displayed in ascending order.
+                            </small>
+                        </div>
+
+                        <div class="alert alert-info">
+                            <strong>ℹ️ Note:</strong> Changes will be saved immediately. Students who haven't taken this exam yet will see the updated version.
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary btn-lg">Update Question</button>
+                            <a href="{% url 'core:exam_detail_teacher' exam.id %}" class="btn btn-outline-secondary">Cancel</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

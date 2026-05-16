@@ -1,0 +1,220 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Add Questions{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">📝 {{ exam.title }}</h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted small">Questions: {{ existing_questions.count }}</p>
+                    <a href="{% url 'core:exam_detail_teacher' exam.id %}" class="btn btn-outline-secondary btn-sm">
+                        ← Back to Exam
+                    </a>
+                </div>
+            </div>
+
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h6 class="mb-0">Add Single Question</h6>
+                </div>
+                <div class="card-body">
+                    <form id="singleQuestionForm">
+                        <div class="mb-2">
+                            <input type="text" class="form-control form-control-sm" id="q_text"
+                                   placeholder="Question text" required>
+                        </div>
+                        <div class="mb-2">
+                            <input type="text" class="form-control form-control-sm" id="opt_a"
+                                   placeholder="Option A" required>
+                        </div>
+                        <div class="mb-2">
+                            <input type="text" class="form-control form-control-sm" id="opt_b"
+                                   placeholder="Option B" required>
+                        </div>
+                        <div class="mb-2">
+                            <input type="text" class="form-control form-control-sm" id="opt_c"
+                                   placeholder="Option C" required>
+                        </div>
+                        <div class="mb-2">
+                            <input type="text" class="form-control form-control-sm" id="opt_d"
+                                   placeholder="Option D" required>
+                        </div>
+                        <div class="row">
+                            <div class="col-6 mb-2">
+                                <select class="form-select form-select-sm" id="correct" required>
+                                    <option value="">Correct</option>
+                                    <option value="A">A</option>
+                                    <option value="B">B</option>
+                                    <option value="C">C</option>
+                                    <option value="D">D</option>
+                                </select>
+                            </div>
+                            <div class="col-6 mb-2">
+                                <input type="number" class="form-control form-control-sm" id="marks"
+                                       placeholder="Marks" value="1" min="1" required>
+                            </div>
+                        </div>
+                        <button type="button" class="btn btn-primary btn-sm w-100" onclick="addSingleQuestion()">
+                            Add Question
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Questions List</h5>
+                    <div class="btn-group">
+                        <button type="button" class="btn btn-info btn-sm" onclick="showQuestionsData()">
+                            🔍 View Added
+                        </button>
+                        <button type="button" class="btn btn-success btn-sm" onclick="submitAllQuestions()">
+                            ✓ Save All Questions
+                        </button>
+                        <a href="{% url 'core:exam_detail_teacher' exam.id %}"
+                           class="btn btn-outline-primary btn-sm">Finish</a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div id="questionsList">
+                        {% if existing_questions %}
+                            {% for q in existing_questions %}
+                                <div class="alert alert-info alert-dismissible fade show" role="alert">
+                                    <strong>Q{{ q.order }}:</strong> {{ q.question_text|truncatewords:15 }}
+                                    <small>({{ q.marks }} marks, Ans: {{ q.correct_option }})</small>
+                                </div>
+                            {% endfor %}
+                        {% else %}
+                            <div class="text-center text-muted py-4">
+                                <p>No questions added yet.</p>
+                                <p class="small">Use the form on the left to add questions.</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let questionsData = [];
+
+function addSingleQuestion() {
+    const question = {
+        question_text: document.getElementById('q_text').value,
+        option_a: document.getElementById('opt_a').value,
+        option_b: document.getElementById('opt_b').value,
+        option_c: document.getElementById('opt_c').value,
+        option_d: document.getElementById('opt_d').value,
+        correct_option: document.getElementById('correct').value,
+        marks: parseInt(document.getElementById('marks').value),
+        order: questionsData.length + 1
+    };
+
+    if (!question.question_text || !question.correct_option) {
+        alert('Please fill all fields');
+        return;
+    }
+
+    questionsData.push(question);
+
+    // Add to list
+    const list = document.getElementById('questionsList');
+    const existingMsg = list.querySelector('.text-center');
+    if (existingMsg) existingMsg.remove();
+
+    const alertDiv = document.createElement('div');
+    alertDiv.className = 'alert alert-success alert-dismissible fade show';
+    alertDiv.innerHTML = `
+        <strong>Q${question.order}:</strong> ${question.question_text.substring(0, 50)}...
+        <small>(${question.marks} marks, Ans: ${question.correct_option})</small>
+        <button type="button" class="btn-close" onclick="this.parentElement.remove()"></button>
+    `;
+    list.appendChild(alertDiv);
+
+    // Clear form
+    document.getElementById('singleQuestionForm').reset();
+}
+
+function showQuestionsData() {
+    if (questionsData.length === 0) {
+        alert('No questions added yet!');
+        return;
+    }
+
+    let message = `You have ${questionsData.length} question(s) ready to save:\n\n`;
+    questionsData.forEach((q, i) => {
+        message += `${i+1}. ${q.question_text.substring(0, 40)}...\n`;
+        message += `   Marks: ${q.marks}, Correct: ${q.correct_option}\n\n`;
+    });
+    message += 'Click "Save All Questions" to save them to the database.';
+
+    alert(message);
+    console.log('Questions data:', questionsData);
+}
+
+function submitAllQuestions() {
+    if (questionsData.length === 0) {
+        alert('No questions to save!');
+        return;
+    }
+
+    console.log('Submitting questions:', questionsData.length);
+    console.log('Questions data:', questionsData);
+
+    const formData = new FormData();
+    formData.append('questions_data', JSON.stringify(questionsData));
+
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value;
+    if (!csrfToken) {
+        // Try getting from cookie
+        const cookieValue = document.cookie
+            .split('; ')
+            .find(row => row.startsWith('csrftoken='))
+            ?.split('=')[1];
+        formData.append('csrfmiddlewaretoken', cookieValue || '');
+    } else {
+        formData.append('csrfmiddlewaretoken', csrfToken);
+    }
+
+    fetch('{% url "core:add_questions" exam.id %}', {
+        method: 'POST',
+        body: formData
+    })
+    .then(res => {
+        console.log('Response status:', res.status);
+        if (res.redirected) {
+            console.log('Redirected to:', res.url);
+            window.location.href = res.url;
+            return;
+        }
+        return res.json();
+    })
+    .then(data => {
+        if (data) {
+            if (data.success) {
+                alert('Questions saved successfully!');
+                window.location.href = '{% url "core:exam_detail_teacher" exam.id %}';
+            } else if (data.error) {
+                alert('Error: ' + data.error);
+                console.error('Server error:', data.error);
+            }
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Failed to save questions. Error: ' + error.message);
+    });
+}
+</script>
+
+<input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
+{% endblock %}

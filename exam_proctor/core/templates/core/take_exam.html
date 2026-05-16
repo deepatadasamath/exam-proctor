@@ -1,0 +1,698 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Taking Exam - {{ exam.title }}{% endblock %}
+
+{% block content %}
+<style>
+    .exam-layout {
+        display: flex;
+        gap: 20px;
+        height: calc(100vh - 200px);
+    }
+
+    .questions-panel {
+        flex: 1;
+        overflow-y: auto;
+        padding-right: 10px;
+    }
+
+    .proctor-panel {
+        width: 420px;
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+    }
+
+    .question-option {
+        padding: 12px 15px;
+        margin: 8px 0;
+        border: 2px solid #dee2e6;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .question-option:hover {
+        border-color: var(--primary-color);
+        background-color: #f8f9fa;
+    }
+
+    .question-option.selected {
+        border-color: var(--primary-color);
+        background-color: #e7f1ff;
+    }
+
+    .webcam-container {
+        position: relative;
+        border-radius: 8px;
+        overflow: hidden;
+        background: #000;
+    }
+
+    .webcam-container video {
+        width: 100%;
+        height: auto;
+    }
+
+    .face-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+    }
+
+    .timer-display {
+        font-size: 1.5rem;
+        font-weight: bold;
+        text-align: center;
+        padding: 10px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 8px;
+    }
+
+    .timer-display.warning {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    }
+
+    .timer-display.danger {
+        background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+        animation: pulse 1s infinite;
+    }
+
+    @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.7; }
+    }
+
+    .question-palette {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 5px;
+    }
+
+    .question-nav-btn.current {
+        background-color: var(--primary-color) !important;
+        color: white !important;
+    }
+
+    .question-nav-btn.answered {
+        background-color: #28a745 !important;
+        color: white !important;
+    }
+
+    .question-slide {
+        padding: 10px 0;
+    }
+</style>
+
+<div class="container-fluid mt-3">
+    <div class="exam-layout">
+        <!-- Left Panel - Questions -->
+        <div class="questions-panel">
+            <div class="card mb-3">
+                <div class="card-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">{{ exam.title }}</h5>
+                        <span class="badge bg-info">Question <span id="currentQ">1</span> of {{ questions|length }}</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-body">
+                    <!-- Question Display -->
+                    <div id="question-container">
+                        {% for question in questions %}
+                            <div class="question-slide" data-question-id="{{ question.id }}"
+                                 data-question-num="{{ forloop.counter }}"
+                                 style="display: {% if forloop.first %}block{% else %}none{% endif %};">
+                                <h5 class="mb-4">
+                                    <span class="badge bg-primary">Q{{ forloop.counter }}</span>
+                                    {{ question.question_text }}
+                                    <span class="badge bg-info float-end">{{ question.marks }} marks</span>
+                                </h5>
+
+                                <div class="options-list">
+                                    <div class="question-option" data-option="A" onclick="selectOption({{ question.id }}, 'A')">
+                                        <strong>(A)</strong> {{ question.option_a }}
+                                    </div>
+                                    <div class="question-option" data-option="B" onclick="selectOption({{ question.id }}, 'B')">
+                                        <strong>(B)</strong> {{ question.option_b }}
+                                    </div>
+                                    <div class="question-option" data-option="C" onclick="selectOption({{ question.id }}, 'C')">
+                                        <strong>(C)</strong> {{ question.option_c }}
+                                    </div>
+                                    <div class="question-option" data-option="D" onclick="selectOption({{ question.id }}, 'D')">
+                                        <strong>(D)</strong> {{ question.option_d }}
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+
+                    <!-- Navigation Buttons -->
+                    <div class="d-flex justify-content-between mt-4">
+                        <button type="button" class="btn btn-secondary" id="prevBtn" onclick="previousQuestion()" disabled>
+                            ← Previous
+                        </button>
+                        <button type="button" class="btn btn-primary" id="nextBtn" onclick="nextQuestion()">
+                            Next →
+                        </button>
+                        <button type="button" class="btn btn-success d-none" id="submitBtn" onclick="submitExam(false)">
+                            Submit Exam
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Panel - Proctoring -->
+        <div class="proctor-panel">
+            <!-- Timer -->
+            <div class="timer-display" id="timer">
+                Loading...
+            </div>
+
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="mb-2">⏱️ Time Remaining</h6>
+                    <div class="progress">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated"
+                             role="progressbar" id="progressBar" style="width: 100%"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stats -->
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="mb-2">📊 Progress</h6>
+                    <p class="mb-1">Answered: <span id="answeredCount">0</span> / {{ questions|length }}</p>
+                    <p class="mb-0 text-muted">⚠️ Warnings: <span id="warningCount">0</span> / {{ settings.max_warnings }}</p>
+                </div>
+            </div>
+
+            <!-- Proctoring Log with Camera Feed -->
+            {% if not is_practice %}
+                <div class="card">
+                    <div class="card-body">
+                        <h6 class="mb-2">📋 Proctoring Log</h6>
+
+                        <!-- Camera Feed -->
+                        <div class="webcam-container mb-3">
+                            <video id="webcam" autoplay playsinline muted></video>
+                            <canvas id="overlay" class="face-overlay"></canvas>
+                            <div class="position-absolute top-0 start-0 m-2">
+                                <span class="badge {% if settings.enable_tab_detection %}bg-danger{% else %}bg-secondary{% endif %}">
+                                    Tab Detection: {% if settings.enable_tab_detection %}ON{% else %}OFF{% endif %}
+                                </span>
+                            </div>
+                            <div class="position-absolute top-0 end-0 m-2">
+                                <span class="badge bg-success" id="cameraStatus">Camera Active</span>
+                            </div>
+                        </div>
+
+                        <!-- Alerts Log -->
+                        <div id="alertsLog" style="max-height: 150px; overflow-y: auto;">
+                            <p class="text-muted small mb-0">Monitoring started...</p>
+                        </div>
+                    </div>
+                </div>
+            {% else %}
+                <div class="alert alert-info">
+                    <strong>Practice Mode</strong><br>
+                    Proctoring is disabled in practice mode.
+                </div>
+            {% endif %}
+
+            <!-- Question Palette -->
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="mb-2">🔢 Question Navigator</h6>
+                    <div class="question-palette">
+                        {% for question in questions %}
+                            <button class="btn btn-sm btn-outline-primary question-nav-btn"
+                                    id="navBtn{{ forloop.counter }}"
+                                    onclick="goToQuestion({{ forloop.counter }})">
+                                {{ forloop.counter }}
+                            </button>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Submit Button -->
+            <button type="button" class="btn btn-success btn-lg w-100" onclick="submitExam(false)">
+                Submit Exam
+            </button>
+        </div>
+    </div>
+</div>
+
+<input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
+
+<!-- face-api.js -->
+{% if not is_practice %}
+<script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+{% endif %}
+
+<script>
+// Global variables - MUST be declared at top level for onclick handlers
+const attemptId = {{ attempt.id }};
+const examDuration = {{ exam.duration }} * 60; // in seconds
+const isPractice = {{ is_practice|lower }};
+const settings = {{ settings|safe }};  // Now properly JSON-encoded
+let timeRemaining = {{ time_remaining }};
+let currentQuestion = 1;
+const totalQuestions = {{ questions|length }};
+let answers = {};
+let warningCount = 0;
+let timer = null;
+let detectionInterval = null;
+let stream = null;
+let modelsLoaded = false;
+
+// Initialize on page load
+window.onload = function() {
+    console.log('Page loaded, initializing...');
+
+    updateTimer();
+    updateProgress();
+    restoreSavedAnswers();
+
+    // Start proctoring if not practice mode
+    if (!isPractice && typeof faceapi !== 'undefined') {
+        initializeProctoring();
+    } else if (!isPractice) {
+        // Wait for face-api to load
+        const checkFaceAPI = setInterval(() => {
+            if (typeof faceapi !== 'undefined') {
+                clearInterval(checkFaceAPI);
+                initializeProctoring();
+            }
+        }, 100);
+    }
+
+    // Warn before leaving
+    window.addEventListener('beforeunload', (e) => {
+        if (!isPractice && timeRemaining > 0) {
+            e.preventDefault();
+            e.returnValue = '';
+        }
+    });
+
+    // Tab detection
+    if (!isPractice && settings.enable_tab_detection) {
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                logProctoringAlert('tab_switch', 'Tab switch detected');
+            }
+        });
+
+        window.addEventListener('blur', () => {
+            if (!document.hidden) {
+                logProctoringAlert('tab_switch', 'Window lost focus');
+            }
+        });
+    }
+};
+
+// Question navigation
+function goToQuestion(num) {
+    currentQuestion = num;
+    showQuestion(num);
+}
+
+function nextQuestion() {
+    if (currentQuestion < totalQuestions) {
+        currentQuestion++;
+        showQuestion(currentQuestion);
+    }
+}
+
+function previousQuestion() {
+    if (currentQuestion > 1) {
+        currentQuestion--;
+        showQuestion(currentQuestion);
+    }
+}
+
+function showQuestion(num) {
+    console.log('Showing question:', num);
+
+    // Hide all questions
+    const slides = document.querySelectorAll('.question-slide');
+    slides.forEach((slide, index) => {
+        slide.style.display = 'none';
+    });
+
+    // Show selected question
+    const selectedSlide = document.querySelector(`.question-slide[data-question-num="${num}"]`);
+    if (selectedSlide) {
+        selectedSlide.style.display = 'block';
+    }
+
+    // Update current question display
+    const currentQ = document.getElementById('currentQ');
+    if (currentQ) {
+        currentQ.textContent = num;
+    }
+
+    // Update buttons
+    const prevBtn = document.getElementById('prevBtn');
+    if (prevBtn) {
+        prevBtn.disabled = (num === 1);
+    }
+
+    const nextBtn = document.getElementById('nextBtn');
+    const submitBtn = document.getElementById('submitBtn');
+
+    if (num === totalQuestions) {
+        if (nextBtn) nextBtn.classList.add('d-none');
+        if (submitBtn) submitBtn.classList.remove('d-none');
+    } else {
+        if (nextBtn) nextBtn.classList.remove('d-none');
+        if (submitBtn) submitBtn.classList.add('d-none');
+    }
+
+    // Update navigation buttons
+    for (let i = 1; i <= totalQuestions; i++) {
+        const btn = document.getElementById(`navBtn${i}`);
+        if (btn) {
+            btn.classList.remove('current');
+            if (i === num) {
+                btn.classList.add('current');
+            }
+        }
+    }
+}
+
+// Option selection
+function selectOption(questionId, option) {
+    console.log('Selected option:', questionId, option);
+
+    // Update UI
+    const questionSlide = document.querySelector(`.question-slide[data-question-id="${questionId}"]`);
+    if (questionSlide) {
+        const options = questionSlide.querySelectorAll('.question-option');
+        options.forEach(opt => {
+            opt.classList.remove('selected');
+        });
+
+        const selectedOption = questionSlide.querySelector(`.question-option[data-option="${option}"]`);
+        if (selectedOption) {
+            selectedOption.classList.add('selected');
+        }
+    }
+
+    // Save answer
+    answers[questionId] = option;
+
+    // Mark as answered in palette
+    const questionNum = questionSlide?.getAttribute('data-question-num');
+    if (questionNum) {
+        const navBtn = document.getElementById(`navBtn${questionNum}`);
+        if (navBtn && !navBtn.classList.contains('answered')) {
+            navBtn.classList.add('answered');
+        }
+    }
+
+    // Update progress
+    updateProgress();
+
+    // Save to server
+    saveAnswerToServer(questionId, option);
+}
+
+// Save answer to server
+function saveAnswerToServer(questionId, selectedOption) {
+    const csrfToken = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
+
+    fetch('{% url "core:save_answer" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': csrfToken
+        },
+        body: `attempt_id=${attemptId}&question_id=${questionId}&selected_option=${selectedOption}`
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (!data.success) {
+            console.error('Failed to save answer');
+        }
+    })
+    .catch(error => {
+        console.error('Error saving answer:', error);
+    });
+}
+
+// Timer functions
+function updateTimer() {
+    if (timer) clearInterval(timer);
+
+    timer = setInterval(() => {
+        timeRemaining--;
+
+        const minutes = Math.floor(timeRemaining / 60);
+        const seconds = timeRemaining % 60;
+        const timerDisplay = document.getElementById('timer');
+
+        if (timerDisplay) {
+            timerDisplay.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+
+            if (timeRemaining <= 300) {
+                timerDisplay.classList.add('warning');
+            }
+            if (timeRemaining <= 60) {
+                timerDisplay.classList.add('danger');
+            }
+        }
+
+        // Update progress bar
+        const progressPercent = (timeRemaining / examDuration) * 100;
+        const progressBar = document.getElementById('progressBar');
+        if (progressBar) {
+            progressBar.style.width = `${progressPercent}%`;
+        }
+
+        if (timeRemaining <= 0) {
+            clearInterval(timer);
+            submitExam(true);
+        }
+    }, 1000);
+}
+
+function updateProgress() {
+    const answeredCount = Object.keys(answers).length;
+    const answeredDisplay = document.getElementById('answeredCount');
+    if (answeredDisplay) {
+        answeredDisplay.textContent = answeredCount;
+    }
+}
+
+// Restore saved answers from server
+function restoreSavedAnswers() {
+    {% for question_id, selected_option in answers.items %}
+        answers[{{ question_id }}] = '{{ selected_option }}';
+
+        // Mark as selected in UI
+        const questionSlide = document.querySelector(`.question-slide[data-question-id="{{ question_id }}"]`);
+        if (questionSlide) {
+            const optionDiv = questionSlide.querySelector(`.question-option[data-option="{{ selected_option }}"]`);
+            if (optionDiv) {
+                optionDiv.classList.add('selected');
+            }
+        }
+
+        // Mark as answered in palette
+        const questionNum = questionSlide?.getAttribute('data-question-num');
+        if (questionNum) {
+            const navBtn = document.getElementById(`navBtn${questionNum}`);
+            if (navBtn) {
+                navBtn.classList.add('answered');
+            }
+        }
+    {% endfor %}
+
+    updateProgress();
+}
+
+// Submit exam
+function submitExam(autoSubmit) {
+    if (!autoSubmit && !confirm('Are you sure you want to submit the exam?')) {
+        return;
+    }
+
+    if (timer) clearInterval(timer);
+    if (detectionInterval) clearInterval(detectionInterval);
+    if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+    }
+
+    window.location.href = `/exam/${attemptId}/submit/`;
+}
+
+// ============================================
+// AI PROCTORING FUNCTIONS
+// ============================================
+
+async function initializeProctoring() {
+    if (isPractice) {
+        console.log('Practice mode - proctoring disabled');
+        return;
+    }
+
+    try {
+        await loadModels();
+        await initWebcam();
+        startFaceDetection();
+    } catch (error) {
+        console.error('Proctoring initialization error:', error);
+        addAlertToLog('Camera initialization failed. Please check permissions.', 'error');
+    }
+}
+
+async function loadModels() {
+    const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.12/model/';
+
+    await Promise.all([
+        faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+        faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+    ]);
+
+    modelsLoaded = true;
+    console.log('Face detection models loaded');
+}
+
+async function initWebcam() {
+    const video = document.getElementById('webcam');
+
+    try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        video.srcObject = stream;
+
+        return new Promise((resolve) => {
+            video.onloadedmetadata = () => {
+                resolve();
+            };
+        });
+    } catch (error) {
+        console.error('Webcam access denied:', error);
+        addAlertToLog('Camera access denied. Please allow camera access.', 'error');
+        throw error;
+    }
+}
+
+function startFaceDetection() {
+    if (detectionInterval) clearInterval(detectionInterval);
+
+    const video = document.getElementById('webcam');
+    const canvas = document.getElementById('overlay');
+    const ctx = canvas.getContext('2d');
+
+    // Set canvas size
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+
+    detectionInterval = setInterval(async () => {
+        if (!modelsLoaded || video.paused || video.ended) {
+            return;
+        }
+
+        const detections = await faceapi.detectAllFaces(
+            video,
+            new faceapi.TinyFaceDetectorOptions()
+        );
+
+        // Clear previous drawings
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        if (detections.length === 0) {
+            logProctoringAlert('no_face', 'No face detected in frame');
+            const status = document.getElementById('cameraStatus');
+            if (status) {
+                status.className = 'badge bg-warning';
+                status.textContent = 'No Face Detected';
+            }
+        } else if (detections.length > 1) {
+            logProctoringAlert('multiple_faces', `Multiple faces detected: ${detections.length}`);
+            const status = document.getElementById('cameraStatus');
+            if (status) {
+                status.className = 'badge bg-danger';
+                status.textContent = 'Multiple Faces';
+            }
+        } else {
+            const status = document.getElementById('cameraStatus');
+            if (status) {
+                status.className = 'badge bg-success';
+                status.textContent = 'Camera Active';
+            }
+        }
+
+        // Draw face detection box
+        detections.forEach(detection => {
+            const box = detection.detection.box;
+            ctx.strokeStyle = '#28a745';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(box.x, box.y, box.width, box.height);
+        });
+    }, settings.face_detection_interval * 1000);
+}
+
+function logProctoringAlert(alertType, description) {
+    const csrfToken = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
+
+    fetch('{% url "core:log_proctoring_alert" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken
+        },
+        body: JSON.stringify({
+            attempt_id: attemptId,
+            alert_type: alertType,
+            description: description,
+            severity: 'medium'
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            warningCount = data.total_warnings;
+            const warningCountEl = document.getElementById('warningCount');
+            if (warningCountEl) {
+                warningCountEl.textContent = warningCount;
+            }
+
+            addAlertToLog(description, 'warning');
+
+            if (data.auto_submit) {
+                alert('Maximum warnings reached! Exam will be auto-submitted.');
+                window.location.href = data.redirect_url;
+            }
+        }
+    })
+    .catch(error => {
+        console.error('Failed to log alert:', error);
+    });
+}
+
+function addAlertToLog(message, type) {
+    const log = document.getElementById('alertsLog');
+    if (!log) return;
+
+    const time = new Date().toLocaleTimeString();
+    const colorClass = type === 'warning' ? 'text-danger' : type === 'error' ? 'text-danger' : 'text-muted';
+
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `small ${colorClass} mb-1`;
+    alertDiv.innerHTML = `<strong>${time}</strong> - ${message}`;
+
+    log.insertBefore(alertDiv, log.firstChild);
+}
+</script>
+{% endblock %}

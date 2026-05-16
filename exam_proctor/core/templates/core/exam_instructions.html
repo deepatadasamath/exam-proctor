@@ -1,0 +1,146 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Exam Instructions{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="mb-0">📋 Exam Instructions</h4>
+                </div>
+                <div class="card-body">
+                    <h5>{{ exam.title }}</h5>
+                    <table class="table table-sm">
+                        <tr><td><strong>Subject:</strong></td><td>{{ exam.subject.name }}</td></tr>
+                        <tr><td><strong>Duration:</strong></td><td>{{ exam.duration }} minutes</td></tr>
+                        <tr><td><strong>Total Marks:</strong></td><td>{{ exam.total_marks }}</td></tr>
+                        <tr><td><strong>Passing Marks:</strong></td><td>{{ exam.passing_marks }}</td></tr>
+                        <tr><td><strong>Questions:</strong></td><td>{{ exam.question_count }}</td></tr>
+                    </table>
+
+                    <hr>
+
+                    <h6>⚠️ Important Instructions:</h6>
+                    <ul>
+                        <li>Ensure your webcam is working before starting the exam</li>
+                        <li>Do not switch tabs or windows during the exam (will be logged)</li>
+                        <li>Only your face should be visible on camera</li>
+                        <li>Do not leave the exam environment once started</li>
+                        <li>Maximum {{ exam.duration }} minutes allowed</li>
+                        <li>{{ exam.passing_marks }} marks required to pass</li>
+                    </ul>
+
+                    {% if not exam.is_practice_mode %}
+                        <div class="alert alert-warning">
+                            <strong>⚠️ AI Proctoring Active:</strong>
+                            Your exam session will be monitored for:
+                            <ul class="mb-0">
+                                <li>Face detection (no face/multiple faces will trigger warnings)</li>
+                                <li>Tab switching (automatically logged)</li>
+                                <li>5 warnings will result in auto-submission</li>
+                            </ul>
+                        </div>
+                    {% endif %}
+
+                    {% if is_retry %}
+                        <div class="alert alert-info">
+                            <strong>🔄 Retry Attempt:</strong>
+                            You have attempted this exam <strong>{{ previous_attempts }}</strong> time(s) before.
+                            This will be a new attempt and your previous results will be saved separately.
+                        </div>
+                    {% endif %}
+
+                    <hr>
+
+                    {% if exam.instructions %}
+                        <div class="mb-3">
+                            <strong>Additional Instructions:</strong>
+                            <p>{{ exam.instructions }}</p>
+                        </div>
+                    {% endif %}
+
+                    <hr>
+
+                    <!-- Availability Status -->
+                    {% if is_not_started %}
+                        <div class="alert alert-warning">
+                            <strong>⏰ Exam Not Yet Started</strong><br>
+                            This exam will be available from: <strong>{{ exam.start_time|date:"M d, Y H:i" }}</strong>
+                        </div>
+                    {% elif is_expired %}
+                        <div class="alert alert-danger">
+                            <strong>⏰ Exam Has Ended</strong><br>
+                            This exam ended on: <strong>{{ exam.end_time|date:"M d, Y H:i" }}</strong>
+                        </div>
+                    {% elif is_active %}
+                        <div class="alert alert-success">
+                            <strong>✅ Exam is Active</strong><br>
+                            You can start this exam now!
+                        </div>
+                    {% endif %}
+
+                    <div class="d-grid gap-2">
+                        {% if is_active %}
+                            <button type="button" class="btn btn-primary btn-lg" onclick="startExam()">
+                                🚀 Start Exam
+                            </button>
+                        {% else %}
+                            <button type="button" class="btn btn-primary btn-lg" disabled>
+                                🚀 Start Exam
+                            </button>
+                        {% endif %}
+                        <a href="{% url 'core:student_dashboard' %}" class="btn btn-outline-secondary">
+                            ← Go Back
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
+
+<script>
+function getCSRFToken() {
+    // Try to get from hidden input first
+    const tokenField = document.querySelector('[name=csrfmiddlewaretoken]');
+    if (tokenField && tokenField.value) {
+        return tokenField.value;
+    }
+
+    // Fallback: get from cookie
+    const cookieValue = document.cookie
+        .split('; ')
+        .find(row => row.startsWith('csrftoken='))
+        ?.split('=')[1];
+    return cookieValue || '';
+}
+
+function startExam() {
+    fetch('{% url "core:start_exam" exam.id %}', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCSRFToken()
+        }
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            window.location.href = data.redirect_url;
+        } else {
+            alert('Error: ' + (data.error || 'Could not start exam'));
+            if (data.error === 'Already attempted') {
+                window.location.href = '{% url "core:student_dashboard" %}';
+            }
+        }
+    })
+    .catch(error => {
+        alert('Failed to start exam. Please try again.');
+        console.error(error);
+    });
+}
+</script>
+{% endblock %}

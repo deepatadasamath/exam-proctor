@@ -1,0 +1,106 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Edit Exam{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="mb-0">✏️ Edit Exam</h4>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+
+                        <div class="mb-3">
+                            <label for="title" class="form-label">Exam Title</label>
+                            <input type="text" class="form-control" name="title" id="title"
+                                   value="{{ exam.title }}" required>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="subject" class="form-label">Subject</label>
+                                <select class="form-select" name="subject" id="subject" required>
+                                    <option value="">Select Subject</option>
+                                    {% for subject in subjects %}
+                                        <option value="{{ subject.id }}"
+                                                {% if subject.id == exam.subject.id %}selected{% endif %}>
+                                            {{ subject.code }} - {{ subject.name }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                                <small class="text-muted">
+                                    <a href="{% url 'core:create_subject' %}">+ Create new subject</a>
+                                </small>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="duration" class="form-label">Duration (minutes)</label>
+                                <input type="number" class="form-control" name="duration" id="duration"
+                                       min="5" max="300" value="{{ exam.duration }}" required>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="total_marks" class="form-label">Total Marks</label>
+                                <input type="number" class="form-control" name="total_marks" id="total_marks"
+                                       value="{{ exam.total_marks }}" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="passing_marks" class="form-label">Passing Marks</label>
+                                <input type="number" class="form-control" name="passing_marks" id="passing_marks"
+                                       value="{{ exam.passing_marks }}" required>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="start_time" class="form-label">Start Time</label>
+                                <input type="datetime-local" class="form-control" name="start_time" id="start_time"
+                                       value="{{ exam.start_time|date:'Y-m-d\TH:i' }}" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="end_time" class="form-label">End Time</label>
+                                <input type="datetime-local" class="form-control" name="end_time" id="end_time"
+                                       value="{{ exam.end_time|date:'Y-m-d\TH:i' }}" required>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="description" class="form-label">Description (Optional)</label>
+                            <textarea class="form-control" name="description" id="description" rows="2">{{ exam.description }}</textarea>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="instructions" class="form-label">Exam Instructions (Optional)</label>
+                            <textarea class="form-control" name="instructions" id="instructions" rows="3"
+                                      placeholder="e.g., Use of calculator is allowed.">{{ exam.instructions }}</textarea>
+                        </div>
+
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" name="is_practice_mode" id="is_practice_mode"
+                                   {% if exam.is_practice_mode %}checked{% endif %}>
+                            <label class="form-check-label" for="is_practice_mode">
+                                Practice Mode (No proctoring, no timer enforcement)
+                            </label>
+                        </div>
+
+                        <div class="alert alert-info">
+                            <strong>⚠️ Note:</strong> If this exam has been published and students have already taken it,
+                            some fields may be restricted to maintain data integrity.
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary btn-lg">Update Exam</button>
+                            <a href="{% url 'core:exam_detail_teacher' exam.id %}" class="btn btn-outline-secondary">Cancel</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

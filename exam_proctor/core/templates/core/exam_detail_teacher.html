@@ -1,0 +1,428 @@
+{% extends 'core/base.html' %}
+
+{% block title %}{{ exam.title }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>📝 {{ exam.title }}</h2>
+        <div>
+            {% if exam.status == 'draft' %}
+                <button type="button" class="btn btn-success" onclick="publishExam({{ exam.id }})">
+                    📢 Publish Exam
+                </button>
+            {% elif exam.status == 'published' %}
+                <span class="badge bg-success fs-6">✅ Published</span>
+                <button type="button" class="btn btn-warning btn-sm ms-2" onclick="makeAvailableNow({{ exam.id }})" title="Update times to make available now">
+                    ⏰ Make Available Now
+                </button>
+            {% else %}
+                <span class="badge bg-secondary fs-6">Archived</span>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Exam Info -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">📋 Exam Information</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <table class="table table-sm">
+                        <tr>
+                            <td><strong>Subject:</strong></td>
+                            <td>{{ exam.subject.name }} ({{ exam.subject.code }})</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Duration:</strong></td>
+                            <td>{{ exam.duration }} minutes</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Total Marks:</strong></td>
+                            <td>{{ exam.total_marks }}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Passing Marks:</strong></td>
+                            <td>{{ exam.passing_marks }}</td>
+                        </tr>
+                    </table>
+                </div>
+                <div class="col-md-6">
+                    <table class="table table-sm">
+                        <tr>
+                            <td><strong>Status:</strong></td>
+                            <td>
+                                <span class="badge badge-{{ exam.status }}">{{ exam.status|title }}</span>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><strong>Mode:</strong></td>
+                            <td>
+                                {% if exam.is_practice_mode %}
+                                    <span class="badge bg-info">Practice Mode</span>
+                                {% else %}
+                                    <span class="badge bg-warning">Proctored</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><strong>Start Time:</strong></td>
+                            <td>{{ exam.start_time|date:"M d, Y H:i" }}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>End Time:</strong></td>
+                            <td>{{ exam.end_time|date:"M d, Y H:i" }}</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+            {% if exam.description %}
+                <div class="mt-3">
+                    <strong>Description:</strong>
+                    <p>{{ exam.description }}</p>
+                </div>
+            {% endif %}
+            {% if exam.instructions %}
+                <div class="mt-3">
+                    <strong>Instructions:</strong>
+                    <p>{{ exam.instructions }}</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Questions List -->
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between">
+            <h5 class="mb-0">❓ Questions ({{ questions|length }})</h5>
+            <a href="{% url 'core:add_questions' exam.id %}" class="btn btn-primary btn-sm">
+                ➕ Add Questions
+            </a>
+        </div>
+        <div class="card-body">
+            {% if questions %}
+                <div class="alert alert-info py-2">
+                    <small><strong>✓</strong> Found {{ questions|length }} question(s) for this exam</small>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th width="40">#</th>
+                                <th>Question</th>
+                                <th>Correct</th>
+                                <th>Marks</th>
+                                <th width="120">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for question in questions %}
+                                <tr>
+                                    <td>{{ question.order }}</td>
+                                    <td>
+                                        <span class="question-text" data-full-text="{{ question.question_text }}">
+                                            {{ question.question_text|truncatewords:15 }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-success">Option {{ question.correct_option }}</span>
+                                    </td>
+                                    <td>{{ question.marks }}</td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm">
+                                            <button class="btn btn-sm btn-outline-info"
+                                                    onclick="viewQuestionFull({{ question.id }})"
+                                                    title="View Full Question">
+                                                👁️
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-secondary"
+                                                    onclick="editQuestion({{ question.id }})"
+                                                    title="Edit Question">
+                                                ✏️
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-danger"
+                                                    onclick="deleteQuestion({{ question.id }}, {{ question.order }})"
+                                                    title="Delete Question">
+                                                🗑️
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="alert alert-warning py-2 mb-3">
+                    <small><strong>⚠️</strong> No questions found! Check if you added questions to the correct exam (ID: {{ exam.id }})</small>
+                </div>
+                <div class="text-center text-muted py-4">
+                    <p>No questions added yet.</p>
+                    <a href="{% url 'core:add_questions' exam.id %}" class="btn btn-primary">
+                        Add Questions Now
+                    </a>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Student Attempts -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">👥 Student Attempts ({{ attempts|length }})</h5>
+        </div>
+        <div class="card-body">
+            {% if attempts %}
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Student</th>
+                                <th>Score</th>
+                                <th>Percentage</th>
+                                <th>Status</th>
+                                <th>Warnings</th>
+                                <th>Time Taken</th>
+                                <th>Date</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for attempt in attempts %}
+                                <tr>
+                                    <td>{{ attempt.student.username }}</td>
+                                    <td>
+                                        {% if attempt.score %}
+                                            {{ attempt.score }}/{{ exam.total_marks }}
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if attempt.percentage is not None %}
+                                            <span class="badge {% if attempt.percentage >= 40 %}bg-success{% else %}bg-danger{% endif %}">
+                                                {{ attempt.percentage }}%
+                                            </span>
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="badge badge-{{ attempt.status }}">
+                                            {{ attempt.status|title }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {% if attempt.total_warnings > 0 %}
+                                            <span class="badge bg-danger">{{ attempt.total_warnings }}</span>
+                                        {% else %}
+                                            <span class="badge bg-success">0</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if attempt.time_taken %}
+                                            {% widthratio attempt.time_taken 60 1 as minutes %}{{ minutes }}m
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ attempt.start_time|date:"M d, Y H:i" }}</td>
+                                    <td>
+                                        <a href="{% url 'core:exam_result' attempt.id %}"
+                                           class="btn btn-sm btn-outline-primary">View Details</a>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="text-center text-muted py-4">
+                    <p>No student attempts yet.</p>
+                    <small>Students will appear here once they take the exam.</small>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="d-flex gap-2 mb-4">
+        <a href="{% url 'core:teacher_dashboard' %}" class="btn btn-outline-secondary">
+            ← Back to Dashboard
+        </a>
+        <a href="{% url 'core:edit_exam' exam.id %}" class="btn btn-primary">
+            ✏️ Edit Exam
+        </a>
+        <a href="{% url 'core:add_questions' exam.id %}" class="btn btn-info">
+            ➕ Add Questions
+        </a>
+        {% if exam.status == 'draft' %}
+            <button type="button" class="btn btn-success" onclick="publishExam({{ exam.id }})">
+                📢 Publish Exam
+            </button>
+        {% endif %}
+        <button type="button" class="btn btn-danger" onclick="deleteExam({{ exam.id }}, '{{ exam.title }}')">
+            🗑️ Delete Exam
+        </button>
+    </div>
+</div>
+
+<script>
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+function publishExam(examId) {
+    if (!confirm('Are you sure you want to publish this exam? Once published, students can start taking it.')) {
+        return;
+    }
+
+    const csrftoken = getCookie('csrftoken');
+
+    fetch(`/teacher/exam/${examId}/publish/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': csrftoken,
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(res => {
+        if (!res.ok && res.status !== 400) {
+            throw new Error(`HTTP error! status: ${res.status}`);
+        }
+        return res.json();
+    })
+    .then(data => {
+        if (data.success) {
+            alert('✅ Exam published successfully!\n\nStudents can now see and take this exam.');
+            location.reload();
+        } else {
+            alert('❌ Could not publish exam:\n\n' + (data.error || 'Unknown error'));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('❌ Failed to publish exam. Please try again or check the browser console for details.');
+    });
+}
+
+function makeAvailableNow(examId) {
+    if (!confirm('This will update the exam start time to now and end time to 7 days from now. Continue?')) {
+        return;
+    }
+
+    const csrftoken = getCookie('csrftoken');
+
+    fetch(`/teacher/exam/${examId}/make-available/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': csrftoken,
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            alert('Exam is now available!');
+            location.reload();
+        } else {
+            alert('Error: ' + (data.error || 'Could not update exam'));
+        }
+    })
+    .catch(error => {
+        alert('Failed to update exam. Please try again.');
+        console.error(error);
+    });
+}
+
+function viewQuestionFull(questionId) {
+    // Get question data from the table row
+    const questionElements = document.querySelectorAll(`[onclick="viewQuestionFull(${questionId})"]`);
+    if (questionElements.length > 0) {
+        const row = questionElements[0].closest('tr');
+        const questionText = row.querySelector('.question-text').getAttribute('data-full-text');
+        const correctOption = row.querySelector('.badge.bg-success').textContent;
+        const marks = row.querySelectorAll('td')[3].textContent;
+
+        alert(`Question Details:\n\n${questionText}\n\nCorrect Answer: ${correctOption}\nMarks: ${marks}`);
+    }
+}
+
+function editQuestion(questionId) {
+    window.location.href = `/teacher/question/${questionId}/edit/`;
+}
+
+function deleteQuestion(questionId, questionOrder) {
+    if (!confirm(`Are you sure you want to delete Question ${questionOrder}?\n\nThis action cannot be undone.`)) {
+        return;
+    }
+
+    const csrftoken = getCookie('csrftoken');
+
+    fetch(`/teacher/question/${questionId}/delete/`, {
+        method: 'DELETE',
+        headers: {
+            'X-CSRFToken': csrftoken,
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            alert(data.message || 'Question deleted successfully!');
+            location.reload();
+        } else {
+            alert('Error: ' + (data.error || 'Could not delete question'));
+        }
+    })
+    .catch(error => {
+        alert('Failed to delete question. Please try again.');
+        console.error(error);
+    });
+}
+
+function deleteExam(examId, examTitle) {
+    if (!confirm(`Are you sure you want to delete "${examTitle}"?\n\nThis will delete the exam and all associated data (questions, attempts, results). This action cannot be undone.`)) {
+        return;
+    }
+
+    const csrftoken = getCookie('csrftoken');
+
+    fetch(`/teacher/exam/${examId}/delete/`, {
+        method: 'DELETE',
+        headers: {
+            'X-CSRFToken': csrftoken,
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            alert('Exam deleted successfully!');
+            window.location.href = '{% url "core:teacher_dashboard" %}';
+        } else {
+            alert('Error: ' + (data.error || 'Could not delete exam'));
+        }
+    })
+    .catch(error => {
+        alert('Failed to delete exam. Please try again.');
+        console.error(error);
+    });
+}
+</script>
+
+<input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
+{% endblock %}
